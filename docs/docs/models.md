@@ -59,6 +59,10 @@ Those types are not supported yet, but will be in the future:
 
 `models.SliceField` can be used to store slices, that are encoded to JSON string for storage (implement sql.Scanner and driver.Valuer interfaces). In request and response JSON payloads, the slice is represented as a JSON array. The types of the slice need to be golang built-in basic types. The field provides validation of all the elements in the slice.
 
+### JSON fields
+
+`datatypes.JSON` from `gorm.datatypes` package can be used to store JSON data in a database, in JSON column type native to the database. The field is represented as a JSON object in the request and response JSON payloads.
+
 ## Model relations
 
 GRF models by themselves do not directly support relations, but:

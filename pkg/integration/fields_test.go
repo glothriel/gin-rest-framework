@@ -14,6 +14,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"gorm.io/datatypes"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -93,10 +94,16 @@ type NullFloat64Model struct {
 	Value sql.NullFloat64 `json:"value" gorm:"column:value"`
 }
 
+type NestedJSONModel struct {
+	models.BaseModel
+	Value datatypes.JSON `json:"value" gorm:"column:value"`
+}
+
 func DoTestTypes(t *testing.T, dialector gorm.Dialector) { // nolint: funlen
 	tests := []struct {
 		name        string
 		baseURL     string
+		skipOn      map[string]bool
 		okBodies    []map[string]any
 		errorBodies []map[string]any
 		okResponses []map[string]any
@@ -438,12 +445,60 @@ func DoTestTypes(t *testing.T, dialector gorm.Dialector) { // nolint: funlen
 				return registerModel[NullFloat64Model]("/null_float64_field", dialector)
 			},
 		},
+		{
+			name:    "Nested JSON field",
+			baseURL: "/nested_json_field",
+			okBodies: []map[string]any{
+				{"value": map[string]string{"foo": "bar"}},
+				{"value": []int{1, 2, 3}},
+				{"value": []bool{true, false}},
+				{"value": true},
+				{"value": "hello world"},
+				{"value": "1,337"},
+				{"value": "1.3.37"},
+			},
+			okResponses: []map[string]any{
+				{"value": map[string]any{"foo": "bar"}},
+				{"value": []any{1.0, 2.0, 3.0}},
+				{"value": []any{true, false}},
+				{"value": true},
+				{"value": "hello world"},
+				{"value": "1,337"},
+				{"value": "1.3.37"},
+			},
+			router: func() *gin.Engine {
+				return registerModel[NestedJSONModel]("/nested_json_field", dialector)
+			},
+		},
+		{
+			name:    "Nested JSON field numeric (only postgres supports them)",
+			baseURL: "/nested_json_field",
+			skipOn: map[string]bool{
+				"sqlite": true,
+			},
+			okBodies: []map[string]any{
+				{"value": 1},
+				{"value": 13.37},
+			},
+			okResponses: []map[string]any{
+				{"value": 1.0},
+				{"value": 13.37},
+			},
+			router: func() *gin.Engine {
+				return registerModel[NestedJSONModel]("/nested_json_field", dialector)
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
 			if len(tt.okBodies) != len(tt.okResponses) {
 				t.Fatalf("Test case %s: number of bodies and responses should be equal", tt.name)
+			}
+
+			skip, ok := tt.skipOn[dialector.Name()]
+			if ok && skip {
+				t.Skipf("Skipping test %s for dialector %s", tt.name, dialector.Name())
 			}
 
 			for _, errorBody := range tt.errorBodies {

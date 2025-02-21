@@ -3,6 +3,7 @@ package detectors
 import (
 	"database/sql"
 	"encoding"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/glothriel/grf/pkg/fields"
 	"github.com/glothriel/grf/pkg/models"
 	"github.com/glothriel/grf/pkg/types"
+	"gorm.io/datatypes"
 )
 
 // ToRepresentationDetector is an interface that allows to detect the representation function for a given field
@@ -26,6 +28,7 @@ func DefaultToRepresentationDetector[Model any]() ToRepresentationDetector[Model
 				children: []ToRepresentationDetector[Model]{
 					&usingGRFRepresentableToRepresentationProvider[Model]{},
 					&timeTimeToRepresentationProvider[Model]{},
+					&gormDataTypesJSONToRepresentationProvider[Model]{},
 					&fromTypeMapperToRepresentationProvider[Model]{
 						mapper:         types.Mapper(),
 						modelTypeNames: FieldTypes[Model](),
@@ -207,6 +210,35 @@ func (p encodingTextMarshalerToRepresentationProvider[Model]) ToRepresentation(f
 					return nil, marshallErr
 				}
 				return string(marshalledBytes), nil
+			},
+		), nil
+	}
+	return nil, fmt.Errorf("Field `%s` is not a encoding.TextMarshaler", fieldName)
+}
+
+type gormDataTypesJSONToRepresentationProvider[Model any] struct{}
+
+func (p gormDataTypesJSONToRepresentationProvider[Model]) ToRepresentation(fieldName string) (fields.RepresentationFunc, error) {
+	fieldSettings := getFieldSettings[Model](fieldName)
+	if fieldSettings != nil && fieldSettings.isDataTypesJSON {
+		return ConvertFuncToRepresentationFuncAdapter(
+			func(v any) (any, error) {
+				vAsJSON, ok := v.(datatypes.JSON)
+				if !ok {
+					return nil, fmt.Errorf("Field `%s` is not a datatypes.JSON", fieldName)
+				}
+				rawJSON, marshalJSONErr := vAsJSON.MarshalJSON()
+				var ret any
+				unmarshalErr := json.Unmarshal(rawJSON, &ret)
+				if unmarshalErr != nil || marshalJSONErr != nil {
+					return nil, fmt.Errorf(
+						"Failed to unmarshal field `%s` from JSON: %w, %w",
+						fieldName,
+						marshalJSONErr,
+						unmarshalErr,
+					)
+				}
+				return ret, nil
 			},
 		), nil
 	}

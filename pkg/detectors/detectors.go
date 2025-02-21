@@ -16,7 +16,7 @@ type relationshipDetector[Model any] struct {
 
 func (p *relationshipDetector[Model]) ToInternalValue(fieldName string) (fields.InternalValueFunc, error) {
 	fieldSettings := getFieldSettings[Model](fieldName)
-	if fieldSettings.isForeignKey {
+	if fieldSettings.isRelation {
 		return nil, ErrFieldShouldBeSkipped
 	}
 	return p.internalChild.ToInternalValue(fieldName)
@@ -28,7 +28,7 @@ func (p *relationshipDetector[Model]) ToRepresentation(fieldName string) (fields
 		return nil, fmt.Errorf("Field `%s` is not present in the model", fieldName)
 
 	}
-	if fieldSettings.isForeignKey {
+	if fieldSettings.isRelation {
 		return nil, ErrFieldShouldBeSkipped
 	}
 	return p.representationChild.ToRepresentation(fieldName)

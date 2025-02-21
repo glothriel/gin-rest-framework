@@ -3,6 +3,7 @@ package detectors
 import (
 	"database/sql"
 	"encoding"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/glothriel/grf/pkg/fields"
 	"github.com/glothriel/grf/pkg/types"
+	"gorm.io/datatypes"
 )
 
 type ToInternalValueDetector interface {
@@ -108,6 +110,31 @@ func (p *encodingTextUnmarshalerToInternalValueDetector[Model]) ToInternalValue(
 	return nil, fmt.Errorf("Field `%s` is not a encoding.TextUnmarshaler", fieldName)
 }
 
+type gormDataTypesJSONToInternalValueDetector[Model any] struct{}
+
+func (p *gormDataTypesJSONToInternalValueDetector[Model]) ToInternalValue(fieldName string) (fields.InternalValueFunc, error) {
+	fieldSettings := getFieldSettings[Model](fieldName)
+	if fieldSettings.isDataTypesJSON {
+		return ConvertFuncToInternalValueFuncAdapter(
+			func(v any) (any, error) {
+				vAsBytes, marshalErr := json.Marshal(v)
+				var dtj datatypes.JSON
+				unmarshalErr := dtj.UnmarshalJSON(vAsBytes)
+				if unmarshalErr != nil || marshalErr != nil {
+					return nil, fmt.Errorf(
+						"Failed to unmarshal field `%s` from JSON: %w, %w",
+						fieldName,
+						marshalErr,
+						unmarshalErr,
+					)
+				}
+				return dtj, nil
+			},
+		), nil
+	}
+	return nil, fmt.Errorf("Field `%s` is not a encoding.TextUnmarshaler", fieldName)
+}
+
 type usingSqlNullFieldToInternalValueDetector[Model any, sqlNullType any] struct {
 	valueFunc func(v any) (any, error)
 }
@@ -168,6 +195,7 @@ func DefaultToInternalValueDetector[Model any]() ToInternalValueDetector {
 				children: []ToInternalValueDetector{
 					&usingGRFParsableToInternalValueDetector[Model]{},
 					&isoTimeTimeToInternalValueDetector[Model]{},
+					&gormDataTypesJSONToInternalValueDetector[Model]{},
 					&fromTypeMapperToInternalValueDetector[Model]{
 						mapper:         types.Mapper(),
 						modelTypeNames: FieldTypes[Model](),

@@ -7,6 +7,7 @@ import (
 
 	"github.com/glothriel/grf/pkg/fields"
 	"github.com/glothriel/grf/pkg/models"
+	"gorm.io/datatypes"
 )
 
 // Prints a summary with the fields of the model obtained using reflection
@@ -56,7 +57,8 @@ type fieldSettings struct {
 
 	isGRFRepresentable bool
 	isGRFParsable      bool
-	isForeignKey       bool
+	isRelation         bool
+	isDataTypesJSON    bool
 
 	isSqlNullInt32 bool
 }
@@ -84,6 +86,7 @@ func getFieldSettings[Model any](fieldName string) *fieldSettings {
 			_, isGRFRepresentable := theTypeAsAny.(fields.GRFRepresentable)
 			_, isGRFParsable := theTypeAsAny.(fields.GRFParsable)
 			_, isSQLNull32 := theTypeAsAny.(*sql.NullInt32)
+			_, isDataTypesJSON := theTypeAsAny.(*datatypes.JSON)
 
 			settings = &fieldSettings{
 				itsType: reflect.TypeOf(
@@ -93,7 +96,8 @@ func getFieldSettings[Model any](fieldName string) *fieldSettings {
 				isEncodingTextUnmarshaler: isEncodingTextUnmarshaler,
 				isGRFRepresentable:        isGRFRepresentable,
 				isGRFParsable:             isGRFParsable,
-				isForeignKey:              fieldMarkedAsRelation,
+				isRelation:                fieldMarkedAsRelation,
+				isDataTypesJSON:           isDataTypesJSON,
 				isSqlNullInt32:            isSQLNull32,
 			}
 		}
