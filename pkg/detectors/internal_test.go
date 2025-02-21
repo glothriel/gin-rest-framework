@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"gorm.io/datatypes"
 )
 
 type someStruct struct{}
@@ -241,4 +242,45 @@ func TestToInternalValue_Uint64(t *testing.T) {
 	}
 
 	testSqlNullModelsToInternalValue[uint64Model](t, float64(42), uint64(42))
+}
+
+func TestToInternalValueDataTypesJSON(t *testing.T) {
+	// given
+	type jsonModel struct {
+		Data datatypes.JSON `json:"data"`
+	}
+	detector := DefaultToInternalValueDetector[jsonModel]()
+
+	// when
+	internalValueFunc, internalValieFuncErr := detector.ToInternalValue("data")
+	iv, ivErr := internalValueFunc(
+		map[string]any{"data": map[string]any{"key": "value"}},
+		"data",
+		nil,
+	)
+
+	// then
+	assert.NoError(t, internalValieFuncErr)
+	assert.NoError(t, ivErr)
+	assert.Equal(t, datatypes.JSON(`{"key":"value"}`), iv)
+}
+
+func TestToInternalValueDataTypesJSONNotJSONSerializable(t *testing.T) {
+	// given
+	type jsonModel struct {
+		Data datatypes.JSON `json:"data"`
+	}
+	detector := DefaultToInternalValueDetector[jsonModel]()
+
+	// when
+	internalValueFunc, internalValueFuncErr := detector.ToInternalValue("data")
+	_, ivErr := internalValueFunc(
+		map[string]any{"data": make(chan int)},
+		"data",
+		nil,
+	)
+
+	// then
+	assert.NoError(t, internalValueFuncErr)
+	assert.Error(t, ivErr)
 }

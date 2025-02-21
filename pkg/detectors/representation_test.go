@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/glothriel/grf/pkg/models"
 	"github.com/stretchr/testify/assert"
+	"gorm.io/datatypes"
 )
 
 func testSqlNullModelsToRepresentation[Model any](t *testing.T, value any, expected any) {
@@ -162,4 +164,62 @@ func TestToRepresentation_SQLNullBool(t *testing.T) {
 		Bool:  false,
 		Valid: false,
 	}, nil)
+}
+
+func TestToRepresentationGormDatatypesJSON(t *testing.T) {
+	// given
+	type gormDatatypesJSONModel struct {
+		Data datatypes.JSON `json:"data"`
+	}
+	detector := &gormDataTypesJSONToRepresentationProvider[gormDatatypesJSONModel]{}
+
+	// when
+	toRepresentation, toRepresentationErr := detector.ToRepresentation("data")
+	representation, representationErr := toRepresentation(models.InternalValue{
+		"value": datatypes.JSON([]byte(`{"key": "value"}`)),
+	}, "value", nil)
+
+	// then
+	assert.NoError(t, toRepresentationErr)
+	assert.NoError(t, representationErr)
+	assert.Equal(t, map[string]any{"key": "value"}, representation)
+
+}
+
+func TestToRepresentationGormDatatypesNotDatatypesJSON(t *testing.T) {
+	// given
+	type gormDatatypesJSONModel struct {
+		Data datatypes.JSON `json:"data"`
+	}
+	detector := &gormDataTypesJSONToRepresentationProvider[gormDatatypesJSONModel]{}
+
+	// when
+	toRepresentation, toRepresentationErr := detector.ToRepresentation("data")
+	_, representationErr := toRepresentation(models.InternalValue{
+		"value": "suprajs bijacz",
+	}, "value", nil)
+
+	// then
+	assert.NoError(t, toRepresentationErr)
+	assert.Error(t, representationErr)
+
+}
+
+func TestToRepresentationGormDatatypesNotValidJSON(t *testing.T) {
+	// given
+	type gormDatatypesJSONModel struct {
+		Data datatypes.JSON `json:"data"`
+	}
+	detector := &gormDataTypesJSONToRepresentationProvider[gormDatatypesJSONModel]{}
+
+	// when
+	toRepresentation, toRepresentationErr := detector.ToRepresentation("data")
+	_, representationErr := toRepresentation(models.InternalValue{
+		"value": datatypes.JSON([]byte(`{"key": "value",}`)),
+	}, "value", nil)
+
+	// then
+	assert.NoError(t, toRepresentationErr)
+	assert.Error(t, representationErr)
+
 }

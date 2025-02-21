@@ -103,6 +103,7 @@ func DoTestTypes(t *testing.T, dialector gorm.Dialector) { // nolint: funlen
 	tests := []struct {
 		name        string
 		baseURL     string
+		skipOn      map[string]bool
 		okBodies    []map[string]any
 		errorBodies []map[string]any
 		okResponses []map[string]any
@@ -469,12 +470,35 @@ func DoTestTypes(t *testing.T, dialector gorm.Dialector) { // nolint: funlen
 				return registerModel[NestedJSONModel]("/nested_json_field", dialector)
 			},
 		},
+		{
+			name:    "Nested JSON field numeric (only postgres supports them)",
+			baseURL: "/nested_json_field",
+			skipOn: map[string]bool{
+				"sqlite": true,
+			},
+			okBodies: []map[string]any{
+				{"value": 1},
+				{"value": 13.37},
+			},
+			okResponses: []map[string]any{
+				{"value": 1.0},
+				{"value": 13.37},
+			},
+			router: func() *gin.Engine {
+				return registerModel[NestedJSONModel]("/nested_json_field", dialector)
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
 			if len(tt.okBodies) != len(tt.okResponses) {
 				t.Fatalf("Test case %s: number of bodies and responses should be equal", tt.name)
+			}
+
+			skip, ok := tt.skipOn[dialector.Name()]
+			if ok && skip {
+				t.Skipf("Skipping test %s for dialector %s", tt.name, dialector.Name())
 			}
 
 			for _, errorBody := range tt.errorBodies {
