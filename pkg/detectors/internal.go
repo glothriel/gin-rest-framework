@@ -118,13 +118,15 @@ func (p *gormDataTypesJSONToInternalValueDetector[Model]) ToInternalValue(fieldN
 		return ConvertFuncToInternalValueFuncAdapter(
 			func(v any) (any, error) {
 				vAsBytes, marshalErr := json.Marshal(v)
-				if marshalErr != nil {
-					return nil, fmt.Errorf("Failed to marshal field `%s` to JSON: %w", fieldName, marshalErr)
-				}
 				var dtj datatypes.JSON
 				unmarshalErr := dtj.UnmarshalJSON(vAsBytes)
-				if unmarshalErr != nil {
-					return nil, fmt.Errorf("Failed to unmarshal field `%s` from JSON: %w", fieldName, unmarshalErr)
+				if unmarshalErr != nil || marshalErr != nil {
+					return nil, fmt.Errorf(
+						"Failed to unmarshal field `%s` from JSON: %w, %w",
+						fieldName,
+						marshalErr,
+						unmarshalErr,
+					)
 				}
 				return dtj, nil
 			},

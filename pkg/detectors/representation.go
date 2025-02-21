@@ -228,13 +228,15 @@ func (p gormDataTypesJSONToRepresentationProvider[Model]) ToRepresentation(field
 					return nil, fmt.Errorf("Field `%s` is not a datatypes.JSON", fieldName)
 				}
 				rawJSON, marshalJSONErr := vAsJSON.MarshalJSON()
-				if marshalJSONErr != nil {
-					return nil, fmt.Errorf("Failed to marshal field `%s` to JSON: %w", fieldName, marshalJSONErr)
-				}
 				var ret any
 				unmarshalErr := json.Unmarshal(rawJSON, &ret)
-				if unmarshalErr != nil {
-					return nil, fmt.Errorf("Failed to unmarshal field `%s` from JSON: %w", fieldName, unmarshalErr)
+				if unmarshalErr != nil || marshalJSONErr != nil {
+					return nil, fmt.Errorf(
+						"Failed to unmarshal field `%s` from JSON: %w, %w",
+						fieldName,
+						marshalJSONErr,
+						unmarshalErr,
+					)
 				}
 				return ret, nil
 			},
